@@ -64,7 +64,7 @@ def segment_road(
         if cut_points:
             multi_polygon = MultiPolygon(cut_points)
             split_line = split(line, multi_polygon)
-            segments = list(split_line.geoms)
+            segments = [segment for segment in split_line.geoms if segment.length >= 1.0]
             
             # Verify result - segments should be approximately equal length
             lengths = [segment.length for segment in segments]

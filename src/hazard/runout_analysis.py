@@ -92,31 +92,51 @@ class RunoutAnalysis:
         
         # Perform spatial join to identify segments intersecting runout zone
         try:
+            # Store original geometries
+            original_geometries = road_segments.copy()
+            
+            # Create buffer zones around road segments for intersection testing
+            self.logger.info(f"Creating {self.buffer_distance}m buffer zones for intersection testing")
             road_segments_buffered = buffer_road_segments(
-            road_segments,
-            buffer_distance=self.buffer_distance
+                road_segments,
+                buffer_distance=self.buffer_distance
             )
-            # Perform spatial join
-            intersecting_segments = spatial_join(
+            
+            # Perform spatial join with buffered geometries
+            buffered_intersecting = spatial_join(
                 road_segments_buffered,
                 runout_polygons,
                 how='inner',
                 predicate='intersects'
             )
             
-            # Check if we've received duplicate rows (can happen with multiple overlapping polygons)
-            if len(intersecting_segments) > len(road_segments):
-                self.logger.warning(f"Spatial join produced {len(intersecting_segments)} rows from {len(road_segments)} segments")
-                
-                # Drop duplicates by segment_id if available
-                if 'segment_id' in intersecting_segments.columns:
-                    before_dedupe = len(intersecting_segments)
-                    intersecting_segments = intersecting_segments.drop_duplicates('segment_id')
-                    self.logger.info(f"Removed {before_dedupe - len(intersecting_segments)} duplicate segments")
+            # No intersections found
+            if buffered_intersecting.empty:
+                self.logger.info("No segments intersect the runout zone")
+                return gpd.GeoDataFrame(columns=road_segments.columns)
             
-            # Keep only the original columns
-            keep_columns = [col for col in road_segments.columns if col in intersecting_segments.columns]
-            intersecting_segments = intersecting_segments[keep_columns]
+            # Get the IDs of intersecting segments
+            id_column = None
+            for col in ['segment_id', 'id', 'ID']:
+                if col in road_segments.columns:
+                    id_column = col
+                    break
+            
+            if id_column is None:
+                self.logger.warning("No ID column found in road_segments, using index")
+                # Use DataFrame index if no ID column found
+                intersecting_ids = buffered_intersecting.index
+                # Get original geometries for these indices
+                intersecting_segments = original_geometries.loc[intersecting_ids].copy()
+            else:
+                # Get IDs of intersecting segments
+                intersecting_ids = buffered_intersecting[id_column].unique()
+                # Get original geometries for these IDs
+                intersecting_segments = original_geometries[original_geometries[id_column].isin(intersecting_ids)].copy()
+            
+            # Ensure we don't have duplicates
+            if id_column:
+                intersecting_segments = intersecting_segments.drop_duplicates(subset=id_column)
             
             self.logger.info(f"Identified {len(intersecting_segments)} segments intersecting runout zone")
             

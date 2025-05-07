@@ -35,7 +35,7 @@ def buffer_road_segments(
     buffered = road_segments.copy()
     
     # Create buffer
-    buffered['geometry'] = road_segments.geometry.buffer(buffer_distance)
+    buffered['geometry'] = road_segments.geometry.buffer(buffer_distance, cap_style=3, join_style=2)
     
     return buffered
 
@@ -65,15 +65,21 @@ def raster_to_polygon(
     import rasterio
     from rasterio import features
 
-    # Ensure raster is 2D
-    raster_values = raster.values
-    if len(raster_values.shape) > 2:
-        if raster_values.shape[0] == 1:
-            # Single band with extra dimension
-            raster_values = raster_values[0]
-        else:
-            # Multi-band raster - use first band or calculate sum/mean
-            raster_values = raster_values[0]
+    # Extract raster values and transform
+    if hasattr(raster, 'rio'):
+        # Get the name to use for the output columns
+        raster_name = getattr(raster, 'name', 'raster')
+        # Extract the values as a 2D numpy array
+        raster_values = raster.values
+        if len(raster_values.shape) > 2:
+            if raster_values.shape[0] == 1:
+                # Single band with extra dimension
+                raster_values = raster_values[0]
+                print(f"Extracted single band from 3D raster for {raster_name}, new shape: {raster_values.shape}")
+            else:
+                # Multi-band raster - use first band
+                raster_values = raster_values[0]
+                print(f"Using only the first band of a multi-band raster for {raster_name}, shape: {raster_values.shape}")
     
     # Create a mask where raster == value
     mask = raster_values == value
@@ -98,7 +104,7 @@ def raster_to_polygon(
     gdf = gpd.GeoDataFrame(
         {'geometry': geometries},
         crs=raster.rio.crs
-    )
+        )
     
     return gdf
 
@@ -126,6 +132,8 @@ def extract_zonal_statistics(
         GeoDataFrame with additional columns for statistics
     """
     import rasterstats
+    import logging
+    logger = logging.getLogger(__name__)
     
     # Make a copy to avoid modifying the original
     result = vector.copy()
@@ -138,17 +146,25 @@ def extract_zonal_statistics(
             
             # Extract the values as a 2D numpy array
             raster_values = raster.values
+            # replace nodata value with 0
+            raster_values[raster_values == raster.rio.nodata] = 0
+            
+            # Log the original shape for debugging
+            logger.info(f"Original raster shape for {raster_name}: {raster_values.shape}")
+            
             if len(raster_values.shape) > 2:
                 if raster_values.shape[0] == 1:
                     # Single band with extra dimension
                     raster_values = raster_values[0]
+                    logger.info(f"Extracted single band from 3D raster for {raster_name}, new shape: {raster_values.shape}")
                 else:
                     # Multi-band raster - use first band
                     raster_values = raster_values[0]
-                    print(f"Warning: Using only the first band of a multi-band raster for {raster_name}")
+                    logger.info(f"Using only the first band of a multi-band raster for {raster_name}, shape: {raster_values.shape}")
             
             transform = raster.rio.transform()
             nodata = raster.rio.nodata if hasattr(raster.rio, 'nodata') else None
+            logger.info(f"Raster transform: {transform}, NoData value: {nodata}")
         else:
             raster_name = 'raster'
             raster_values = raster
@@ -166,13 +182,12 @@ def extract_zonal_statistics(
         )
         
         # Add statistics to the result
-        for i, stat_dict in enumerate(zonal_stats):
+        for idx, stat_dict in zip(result.index, zonal_stats):
             for stat_name, value in stat_dict.items():
-                result.loc[i, f"{raster_name}_{stat_name}"] = value
+                result.loc[idx, f"{raster_name}_{stat_name}"] = value
     
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).error(f"Error extracting zonal statistics: {e}")
+        logger.error(f"Error extracting zonal statistics: {e}")
         # Add default values to prevent downstream errors
         for stat in stats:
             result[f"{getattr(raster, 'name', 'raster')}_{stat}"] = np.nan
@@ -243,5 +258,71 @@ def spatial_join(
     
     # Perform spatial join
     joined = gpd.sjoin(left_gdf, right_gdf, how=how, predicate=predicate)
+    # Keep only first match for each left geometry
+    # The index of joined contains the original indices from left_gdf
+    joined = joined.loc[~joined.index.duplicated(keep='first')]
+
+    return joined
+
+def spatial_join_buffer(
+    left_gdf: gpd.GeoDataFrame,
+    right_gdf: gpd.GeoDataFrame,
+    how: str = 'inner',
+    predicate: str = 'intersects',
+    buffer_distance: float = None
+) -> gpd.GeoDataFrame:
+    """
+    Perform a spatial join between two GeoDataFrames, keeping only the first match when multiple exists.
+    Optionally applies a buffer to left_gdf geometries before joining but preserves original geometries in results.
+
+    Parameters
+    ----------
+    left_gdf : gpd.GeoDataFrame
+        Left GeoDataFrame
+    right_gdf : gpd.GeoDataFrame
+        Right GeoDataFrame
+    how : str, optional
+        Type of join, by default 'inner'
+    predicate : str, optional
+        Spatial predicate, by default 'intersects'
+    buffer_distance : float, optional
+        Buffer distance to apply to left_gdf geometries before joining.
+        If None, no buffer is applied. Default is None.
+
+    Returns
+    -------
+    gpd.GeoDataFrame
+        Joined GeoDataFrame with only the first match for each geometry in left_gdf
+        and containing the original (non-buffered) geometries.
+    """
+    # Ensure both GeoDataFrames have the same CRS
+    if left_gdf.crs != right_gdf.crs:
+        right_gdf = right_gdf.to_crs(left_gdf.crs)
+    
+    # Store original geometries
+    original_geometries = left_gdf.geometry.copy()
+    
+    # Apply buffer if specified
+    if buffer_distance is not None:
+        # Create a copy to avoid modifying the input
+        left_gdf_buffered = left_gdf.copy()
+        left_gdf_buffered['geometry'] = left_gdf_buffered.geometry.buffer(buffer_distance)
+        
+        # Perform spatial join with buffered geometries
+        joined = gpd.sjoin(left_gdf_buffered, right_gdf, how=how, predicate=predicate)
+    else:
+        # Perform spatial join with original geometries
+        joined = gpd.sjoin(left_gdf, right_gdf, how=how, predicate=predicate)
+    
+    # Keep only first match for each left geometry
+    joined = joined.loc[~joined.index.duplicated(keep='first')]
+    
+    # Restore original geometries
+    if buffer_distance is not None:
+        # Create a mapping from original indices to original geometries
+        geom_map = dict(zip(original_geometries.index, original_geometries))
+        
+        # Apply the mapping to restore original geometries
+        joined['geometry'] = joined.index.map(geom_map)
     
     return joined

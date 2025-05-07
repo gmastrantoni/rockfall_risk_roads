@@ -106,8 +106,8 @@ class HazardClassification:
             if min_val <= value < max_val:
                 return class_name
         
-        # Default to Very High if value exceeds all thresholds
-        return 'Very High'
+        # Default to None if value exceeds all thresholds
+        return None
     
     def calculate_hazard_score(
         self,
@@ -134,7 +134,7 @@ class HazardClassification:
         # Convert classes to values
         values = {}
         for param_name, class_name in classes.items():
-            values[param_name] = self.class_to_value.get(class_name, 3)  # Default to Moderate if not found
+            values[param_name] = self.class_to_value.get(class_name, 0)  # Default to 0 if not found
         
         # Calculate weighted score
         weighted_score = 0.0
@@ -148,7 +148,7 @@ class HazardClassification:
         if total_weight > 0:
             hazard_score = weighted_score / total_weight
         else:
-            hazard_score = 3.0  # Default to Moderate if no weights
+            hazard_score = None  # Default to None if no weights
         
         # Classify final hazard score
         hazard_class = self.classify_hazard_score(hazard_score)
@@ -177,8 +177,10 @@ class HazardClassification:
             return 'Moderate'
         elif score >= 1.5:
             return 'Low'
-        else:
+        elif score >=0:
             return 'Very Low'
+        else:
+            return 'NULL'
     
     def classify_dataframe(self, df: pd.DataFrame, suffix: str = '_max') -> pd.DataFrame:
         """

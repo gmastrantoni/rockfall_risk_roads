@@ -57,7 +57,7 @@ def run_hazard_assessment(config_file="config.ini", simulate_parameters=True):
         return None, None
     
     try:
-        road_network = read_vector(road_network_file)
+        road_network = read_vector(road_network_file, crs=config['PARAMETERS'].get('crs'))
         logging.info(f"Loaded road network with {len(road_network)} features")
         
         # Segment the roads into 200m segments
@@ -98,7 +98,7 @@ def run_hazard_assessment(config_file="config.ini", simulate_parameters=True):
             return None, None
         
         try:
-            runout_raster = read_raster(runout_raster_file)
+            runout_raster = read_raster(runout_raster_file, crs=config['PARAMETERS'].get('crs'))
             runout_value = float(config['PARAMETERS'].get('runout_value', 1.0))
             hazard_assessment.set_runout_raster(runout_raster, runout_value)
         except Exception as e:

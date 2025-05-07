@@ -336,7 +336,8 @@ class HazardAssessment:
             runout_value=self.runout_value,
             slope_units=self.slope_units,
             source_areas=self.source_areas,
-            clumps=self.rockfall_clumps
+            clumps=self.rockfall_clumps,
+            # buffer_distance=self.buffer_distance,
         )
         
         # Store the classification results
@@ -499,7 +500,8 @@ class HazardAssessment:
         
         # Extract hazard parameters from config
         hazard_config = config['HAZARD']
-        
+        crs_config = config['PARAMETERS'].get('crs')
+
         parameter_weights = {
             'susceptibility': float(hazard_config.get('susceptibility_weight', 0.4)),
             'velocity': float(hazard_config.get('velocity_weight', 0.3)),
@@ -562,7 +564,7 @@ class HazardAssessment:
                 runout_raster_file = config['INPUT_DATA']['runout_extent_raster']
                 try:
                     logger.info(f"Loading runout extent raster from {runout_raster_file}")
-                    runout_raster = read_raster(runout_raster_file)
+                    runout_raster = read_raster(runout_raster_file, crs=crs_config)
                     hazard_assessment.set_runout_raster(runout_raster, runout_value)
                     logger.info(f"Successfully loaded runout extent raster")
                 except Exception as e:
@@ -573,7 +575,7 @@ class HazardAssessment:
                 susceptibility_raster_file = config['INPUT_DATA']['susceptibility_raster']
                 try:
                     logger.info(f"Loading susceptibility raster from {susceptibility_raster_file}")
-                    susceptibility_raster = read_raster(susceptibility_raster_file)
+                    susceptibility_raster = read_raster(susceptibility_raster_file, crs=crs_config)
                     hazard_assessment.add_parameter_raster('susceptibility', susceptibility_raster)
                     logger.info(f"Successfully loaded susceptibility raster")
                 except Exception as e:
@@ -584,7 +586,7 @@ class HazardAssessment:
                 velocity_raster_file = config['INPUT_DATA']['velocity_raster']
                 try:
                     logger.info(f"Loading velocity raster from {velocity_raster_file}")
-                    velocity_raster = read_raster(velocity_raster_file)
+                    velocity_raster = read_raster(velocity_raster_file, crs=crs_config)
                     hazard_assessment.add_parameter_raster('velocity', velocity_raster)
                     logger.info(f"Successfully loaded velocity raster")
                 except Exception as e:
@@ -595,7 +597,7 @@ class HazardAssessment:
                 energy_raster_file = config['INPUT_DATA']['energy_raster']
                 try:
                     logger.info(f"Loading energy raster from {energy_raster_file}")
-                    energy_raster = read_raster(energy_raster_file)
+                    energy_raster = read_raster(energy_raster_file, crs=crs_config)
                     hazard_assessment.add_parameter_raster('energy', energy_raster)
                     logger.info(f"Successfully loaded energy raster")
                 except Exception as e:
@@ -606,7 +608,7 @@ class HazardAssessment:
                 slope_units_file = config['INPUT_DATA']['slope_units_file']
                 try:
                     logger.info(f"Loading slope units from {slope_units_file}")
-                    slope_units = read_vector(slope_units_file)
+                    slope_units = read_vector(slope_units_file, crs=crs_config)
                     hazard_assessment.set_slope_units(slope_units)
                     logger.info(f"Successfully loaded slope units: {len(slope_units)} units")
                 except Exception as e:
@@ -617,7 +619,7 @@ class HazardAssessment:
                 source_areas_file = config['INPUT_DATA']['source_areas_file']
                 try:
                     logger.info(f"Loading source areas from {source_areas_file}")
-                    source_areas = read_vector(source_areas_file)
+                    source_areas = read_vector(source_areas_file, crs=crs_config)
                     hazard_assessment.set_source_areas(source_areas)
                     logger.info(f"Successfully loaded source areas: {len(source_areas)} areas")
                 except Exception as e:
@@ -628,7 +630,7 @@ class HazardAssessment:
                 rockfall_clumps_file = config['INPUT_DATA']['rockfall_clumps_file']
                 try:
                     logger.info(f"Loading rockfall clumps from {rockfall_clumps_file}")
-                    rockfall_clumps = read_vector(rockfall_clumps_file)
+                    rockfall_clumps = read_vector(rockfall_clumps_file, crs=crs_config)
                     hazard_assessment.set_rockfall_clumps(rockfall_clumps)
                     logger.info(f"Successfully loaded rockfall clumps: {len(rockfall_clumps)} clumps")
                 except Exception as e:

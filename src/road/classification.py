@@ -14,7 +14,7 @@ from shapely.geometry import LineString, Polygon, MultiPolygon
 from typing import Union, List, Tuple, Dict, Optional, Any
 
 # Import utility functions
-from ..utils.geo_utils import raster_to_polygon, spatial_join
+from ..utils.geo_utils import raster_to_polygon, spatial_join, spatial_join_buffer, buffer_road_segments
 from ..hazard.runout_analysis import RunoutAnalysis
 
 # Set up logger
@@ -104,14 +104,15 @@ def classify_road_segments_by_runout(
             if 'index_left' in runout_polygons.columns:
                 runout_polygons = runout_polygons.rename(columns={'index_left': 'index_left_orig'})
             
-            runout_analysis = RunoutAnalysis(runout_raster=runout_raster, runout_value=runout_value)
-            runout_segments = runout_analysis.identify_intersecting_segments(road_segments=road_segments)
-            # runout_segments = spatial_join(
-            #     road_segments,
-            #     runout_polygons,
-            #     how='inner',
-            #     predicate='intersects'
-            # )
+            # runout_analysis = RunoutAnalysis(runout_raster, runout_value)
+            # runout_segments = runout_analysis.identify_intersecting_segments(road_segments)
+            runout_segments = spatial_join_buffer(
+                left_gdf=road_segments,
+                right_gdf=runout_polygons,
+                how='inner',
+                predicate='intersects',
+                buffer_distance=5.0
+            )
             
             # Check for duplicates
             if id_column in runout_segments.columns:

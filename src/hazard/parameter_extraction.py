@@ -24,7 +24,7 @@ class HazardParameterExtraction:
     
     def __init__(
         self,
-        buffer_distance: float = 15.0,
+        buffer_distance: float = 5.0,
         params: Optional[Dict[str, rxr.raster_array.RasterArray]] = None
     ):
         """
@@ -40,6 +40,7 @@ class HazardParameterExtraction:
         self.buffer_distance = buffer_distance
         self.params = params or {}
         self.logger = logging.getLogger(__name__)
+        self.logger.info(f"Initialized HazardParameterExtraction with buffer_distance={buffer_distance}")
     
     def add_parameter(self, name: str, raster: rxr.raster_array.RasterArray):
         """
@@ -55,7 +56,19 @@ class HazardParameterExtraction:
         # Set the name attribute on the raster for easier identification in logs
         setattr(raster, 'name', name)
         self.params[name] = raster
-        self.logger.info(f"Added parameter raster: {name}")
+        
+        # Log raster information for debugging
+        if hasattr(raster, 'values'):
+            shape = raster.values.shape
+            self.logger.info(f"Added parameter raster: {name} with shape {shape}")
+            
+            # Check and log CRS information
+            if hasattr(raster, 'rio') and hasattr(raster.rio, 'crs'):
+                self.logger.info(f"Raster CRS: {raster.rio.crs}")
+            else:
+                self.logger.warning(f"Raster {name} has no CRS information")
+        else:
+            self.logger.warning(f"Added parameter raster: {name} but could not determine shape")
     
     def extract_parameters(
         self,
@@ -77,6 +90,15 @@ class HazardParameterExtraction:
         gpd.GeoDataFrame
             GeoDataFrame with added hazard parameter columns
         """
+        # Check input data
+        if road_segments is None or road_segments.empty:
+            self.logger.warning("No road segments provided for parameter extraction")
+            return gpd.GeoDataFrame()
+        
+        # Log road segment CRS information
+        self.logger.info(f"Road segments CRS: {road_segments.crs}")
+        self.logger.info(f"Number of road segments: {len(road_segments)}")
+        
         # Create buffer zones around road segments
         self.logger.info(f"Creating {self.buffer_distance}m buffer zones around {len(road_segments)} road segments")
         buffered_segments = buffer_road_segments(
@@ -99,9 +121,21 @@ class HazardParameterExtraction:
                 # Log raster information for debugging
                 if hasattr(raster, 'values'):
                     shape = raster.values.shape
-                    self.logger.info(f"Raster shape: {shape}")
+                    self.logger.info(f"Raster shape for {param_name}: {shape}")
+                    
+                    # Log more detailed information for multi-dimensional rasters
                     if len(shape) > 2:
                         self.logger.info(f"Multi-dimensional raster detected for {param_name}: {shape}")
+                        if shape[0] == 1:
+                            self.logger.info(f"Single band with extra dimension for {param_name}")
+                        else:
+                            self.logger.info(f"Multi-band raster for {param_name} with {shape[0]} bands")
+                
+                # Check for CRS compatibility
+                if hasattr(raster, 'rio') and hasattr(raster.rio, 'crs'):
+                    if buffered_segments.crs != raster.rio.crs:
+                        self.logger.warning(f"CRS mismatch: road segments ({buffered_segments.crs}) vs raster ({raster.rio.crs})")
+                        self.logger.info(f"Consider reprojecting data to a common CRS")
                 
                 # Extract statistics
                 stats_result = extract_zonal_statistics(
@@ -109,6 +143,28 @@ class HazardParameterExtraction:
                     raster,
                     stats=statistics
                 )
+                
+                # Verify stats results
+                expected_cols = [f"{param_name}_{stat}" for stat in statistics]
+                found_cols = [col for col in stats_result.columns if any(col.endswith(f"_{stat}") for stat in statistics)]
+                
+                # self.logger.info(f"Expected columns: {expected_cols}")
+                # self.logger.info(f"Found columns: {found_cols}")
+                
+                missing_cols = set(expected_cols) - set(found_cols)
+                if missing_cols:
+                    self.logger.warning(f"Missing expected columns after zonal statistics: {missing_cols}")
+                
+                # Check for NaN values
+                for stat in statistics:
+                    col_name = f"{param_name}_{stat}"
+                    if col_name in stats_result.columns:
+                        nan_count = stats_result[col_name].isna().sum()
+                        if nan_count > 0:
+                            self.logger.warning(f"Found {nan_count} NaN values in {col_name} ({nan_count/len(stats_result)*100:.1f}%)")
+                            # Fill NaN values with a default value (e.g., 0)
+                            stats_result[col_name].fillna(0, inplace=True)
+                            self.logger.info(f"Filled NaN values in {col_name} with 0")
                 
                 # Add statistics to the result
                 for stat in statistics:
@@ -125,6 +181,7 @@ class HazardParameterExtraction:
                 # Add placeholder columns with NaN values
                 for stat in statistics:
                     result[f"{param_name}_{stat}"] = np.nan
+                    self.logger.warning(f"Added NaN values for {param_name}_{stat} due to error")
         
         return result
     

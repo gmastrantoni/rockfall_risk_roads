@@ -107,13 +107,13 @@ def read_raster(
     # Read raster data
     raster = rxr.open_rasterio(file_path, masked=True)
     
-    # Select band if multi-band
-    if raster.shape[0] > 1 and band is not None:
-        raster = raster[band-1]
+    # Select band
+    raster = raster[band-1]
     
     # Reproject if needed
     if crs and raster.rio.crs != crs:
         raster = raster.rio.reproject(crs)
+        print(f"Reprojected raster to {crs}")
     
     return raster
 

@@ -326,3 +326,35 @@ def spatial_join_buffer(
         joined['geometry'] = joined.index.map(geom_map)
     
     return joined
+
+
+def multilinestring_to_linestring(multiline_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """
+    Convert a GeoDataFrame of MultiLineString geometries to a GeoDataFrame of LineString geometries
+    by merging all segments in each MultiLineString into a single LineString.
+
+    Parameters
+    ----------
+    multiline_gdf : gpd.GeoDataFrame
+        GeoDataFrame with MultiLineString geometries
+
+    Returns
+    -------
+    gpd.GeoDataFrame
+        GeoDataFrame with LineString geometries
+    """
+    from shapely.geometry import MultiLineString, LineString
+
+    def merge_multilinestring(multiline):
+        if not isinstance(multiline, MultiLineString):
+            raise TypeError("Geometry must be a MultiLineString")
+        coords = []
+        for line in multiline.geoms:
+            coords.extend(line.coords)
+        return LineString(coords)
+
+    # Apply the merge function to each geometry
+    linestrings = multiline_gdf.geometry.apply(merge_multilinestring)
+    result = multiline_gdf.copy()
+    result.geometry = linestrings
+    return result

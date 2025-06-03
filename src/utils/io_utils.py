@@ -159,6 +159,10 @@ def write_vector(
     if driver is None:
         driver = supported_formats[ext]
     
+    # Convert all categorical columns to string type
+    categorical_cols = gdf.select_dtypes(include=['category']).columns
+    for col in categorical_cols:
+        gdf[col] = gdf[col].astype(str)
     # Write vector data
     gdf.to_file(output_path, driver=driver)
 

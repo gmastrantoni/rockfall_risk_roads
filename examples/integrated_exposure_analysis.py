@@ -12,8 +12,8 @@ import geopandas as gpd
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from src.road.network_analysis2 import RoadNetworkGraph, calculate_betweenness_centrality
-from src.exposure.network_relevance2 import NetworkRelevanceAnalyzer, calculate_network_exposure
+from src.road.network_analysis import RoadNetworkGraph, calculate_betweenness_centrality
+from src.exposure.network_relevance import NetworkRelevanceAnalyzer, calculate_network_exposure
 from src.exposure.intrinsic_value import IntrinsicValueCalculator
 
 

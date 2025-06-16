@@ -24,8 +24,8 @@ class IntrinsicValueCalculator:
     
     def __init__(
         self,
-        type_weight: float = 0.4,
-        function_weight: float = 0.3,
+        type_weight: float = 0.3,
+        function_weight: float = 0.4,
         condition_weight: float = 0.2,
         toll_weight: float = 0.1,
         type_column: str = 'tr_str_ty',

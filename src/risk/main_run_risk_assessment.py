@@ -178,7 +178,7 @@ def run_risk_assessment(config_file="config.ini"):
             # Use binary vulnerability assessment
             segments_with_vulnerability = assess_binary_vulnerability(
                 all_segments_with_hazard,
-                roadbed_column=config['VULNERABILITY'].get('roadbed_column', 'tr_str_sed'),
+                roadbed_column= config['VULNERABILITY'].get('roadbed_column', 'tr_str_sed'),
                 level_column=config['VULNERABILITY'].get('level_column', 'tr_str_liv'),
                 output_column='vulnerability'
             )

@@ -21,6 +21,10 @@ class RiskCalculator:
     Class for calculating final risk scores by combining hazard, vulnerability, and exposure.
     
     This class implements the risk equation: Risk = Hazard x Vulnerability x Exposure.
+    
+    Hazard: 1-5 (int/float)
+    Vulnerability: 0 or 1 (binary)
+    Exposure: 0-1 (float)
     """
     
     def __init__(
@@ -72,9 +76,9 @@ class RiskCalculator:
         hazard : float
             Hazard score (1-5 scale)
         vulnerability : float
-            Vulnerability score (1-5 scale)
+            Vulnerability score (0 or 1)
         exposure : float
-            Exposure score (1-5 scale)
+            Exposure score (0-1 scale)
         special_class : Optional[str], optional
             Special risk class, by default None
 
@@ -93,14 +97,13 @@ class RiskCalculator:
             self.vulnerability_weight * vulnerability *
             self.exposure_weight * exposure
         )
-        
         return risk_score
-    
+
     def normalize_risk_score(
         self,
         risk_score: float,
         min_score: float = 0.0,
-        max_score: float = 125.0
+        max_score: float = 5.0  # max hazard (5) * max vulnerability (1) * max exposure (1)
     ) -> float:
         """
         Normalize a risk score to a 1-5 scale.
@@ -112,7 +115,7 @@ class RiskCalculator:
         min_score : float, optional
             Minimum possible risk score, by default 0.0
         max_score : float, optional
-            Maximum possible risk score, by default 125.0 (5*5*5)
+            Maximum possible risk score, by default 5.0 (5*1*1)
 
         Returns
         -------
@@ -130,7 +133,7 @@ class RiskCalculator:
         
         # Clip to 1-5 range
         return min(5, max(1, normalized))
-    
+
     def classify_risk(self, score: float) -> str:
         """
         Classify a risk score into a risk class.
@@ -182,11 +185,11 @@ def calculate_risk_for_segments(
     road_segments : gpd.GeoDataFrame
         GeoDataFrame containing road segments with hazard, vulnerability, and exposure scores
     hazard_column : str, optional
-        Column containing hazard scores, by default 'hazard_score'
+        Column containing hazard scores (1-5), by default 'hazard_score'
     vulnerability_column : str, optional
-        Column containing vulnerability scores, by default 'vulnerability_score'
+        Column containing vulnerability scores (0 or 1), by default 'vulnerability_score'
     exposure_column : str, optional
-        Column containing exposure scores, by default 'exposure_score'
+        Column containing exposure scores (0-1), by default 'exposure_score'
     risk_class_column : str, optional
         Column containing special risk classes, by default 'risk_class'
     output_raw_column : str, optional
@@ -221,15 +224,13 @@ def calculate_risk_for_segments(
     # Prepare input data with defaults for missing values
     if hazard_column not in result.columns:
         logger.warning(f"Hazard column '{hazard_column}' not found, using default value of 3.0")
-        result[hazard_column] = 3.0
-    
+        result[hazard_column] = 3.0  # mid value for 1-5
     if vulnerability_column not in result.columns:
-        logger.warning(f"Vulnerability column '{vulnerability_column}' not found, using default value of 3.0")
-        result[vulnerability_column] = 3.0
-    
+        logger.warning(f"Vulnerability column '{vulnerability_column}' not found, using default value of 1 (vulnerable)")
+        result[vulnerability_column] = 1  # default to vulnerable
     if exposure_column not in result.columns:
-        logger.warning(f"Exposure column '{exposure_column}' not found, using default value of 3.0")
-        result[exposure_column] = 3.0
+        logger.warning(f"Exposure column '{exposure_column}' not found, using default value of 0.5")
+        result[exposure_column] = 0.5  # mid value for 0-1
     
     # Calculate raw risk scores
     logger.info("Calculating raw risk scores")
@@ -252,8 +253,7 @@ def calculate_risk_for_segments(
     
     # Normalize risk scores
     logger.info("Normalizing risk scores")
-    # Calculate max possible score based on component weights
-    max_possible = 5 * 5 * 5  # max hazard * max vulnerability * max exposure
+    max_possible = 5.0  # max hazard (5) * max vulnerability (1) * max exposure (1)
     result[output_normalized_column] = result[output_raw_column].apply(
         lambda x: calculator.normalize_risk_score(x, max_score=max_possible)
     )

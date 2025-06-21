@@ -106,58 +106,58 @@ def run_risk_assessment(config_file="config.ini"):
         # 1. Load and segment road network
         logger.info("STEP 1: Loading and segmenting road network")
         
-        road_network_file = config['INPUT_DATA'].get('road_network_file')
-        if not road_network_file or not os.path.exists(road_network_file):
-            logger.error(f"Road network file not found: {road_network_file}")
-            return None
+        # road_network_file = config['INPUT_DATA'].get('road_network_file')
+        # if not road_network_file or not os.path.exists(road_network_file):
+        #     logger.error(f"Road network file not found: {road_network_file}")
+        #     return None
         
-        try:
-            road_network = read_vector(road_network_file)
-            logger.info(f"Loaded road network with {len(road_network)} features")
+        # try:
+        #     road_network = read_vector(road_network_file)
+        #     logger.info(f"Loaded road network with {len(road_network)} features")
             
-            # Segment the roads
-            segment_length = float(config['PARAMETERS'].get('segment_length', 200.0))
-            logger.info(f"Segmenting road network into {segment_length}m segments")
-            # Check if road_network has ID column
-            if 'ID' not in road_network.columns and 'id' not in road_network.columns:
-                road_network['id'] = range(1, len(road_network) + 1)
-                id_column = 'id'
-            else:
-                id_column = 'ID' if 'ID' in road_network.columns else 'id'
+        #     # Segment the roads
+        #     segment_length = float(config['PARAMETERS'].get('segment_length', 200.0))
+        #     logger.info(f"Segmenting road network into {segment_length}m segments")
+        #     # Check if road_network has ID column
+        #     if 'ID' not in road_network.columns and 'id' not in road_network.columns:
+        #         road_network['id'] = range(1, len(road_network) + 1)
+        #         id_column = 'id'
+        #     else:
+        #         id_column = 'ID' if 'ID' in road_network.columns else 'id'
             
-            if id_column is None:
-                logger.warning("No ID column found in road network, creating one")
-                road_network['id'] = range(1, len(road_network) + 1)
-                id_column = 'id'
+        #     if id_column is None:
+        #         logger.warning("No ID column found in road network, creating one")
+        #         road_network['id'] = range(1, len(road_network) + 1)
+        #         id_column = 'id'
             
-            road_segments = segment_road_network(
-                road_network,
-                segment_length=segment_length,
-                id_column=id_column,
-                preserve_attributes=True
-            )
-            logger.info(f"Created {len(road_segments)} road segments")
+        #     road_segments = segment_road_network(
+        #         road_network,
+        #         segment_length=segment_length,
+        #         id_column=id_column,
+        #         preserve_attributes=True
+        #     )
+        #     logger.info(f"Created {len(road_segments)} road segments")
             
-            # Save segmented roads
-            segments_output = os.path.join(output_dir, 'road_segments.gpkg')
-            write_vector(road_segments, segments_output)
-            logger.info(f"Saved road segments to: {segments_output}")
+        #     # Save segmented roads
+        #     segments_output = os.path.join(output_dir, 'road_segments.gpkg')
+        #     write_vector(road_segments, segments_output)
+        #     logger.info(f"Saved road segments to: {segments_output}")
             
-            results['road_segments'] = {
-                'count': len(road_segments),
-                'file': segments_output
-            }
+        #     results['road_segments'] = {
+        #         'count': len(road_segments),
+        #         'file': segments_output
+        #     }
             
-        except Exception as e:
-            logger.error(f"Error in road segmentation: {str(e)}")
-            return None
+        # except Exception as e:
+        #     logger.error(f"Error in road segmentation: {str(e)}")
+        #     return None
         
         # 2. Hazard Assessment
         logger.info("STEP 2: Hazard Assessment")
         
         try:
             # Run hazard assessment
-            _, _, all_segments_with_hazard = run_hazard_assessment(config_file, simulate_parameters=False)
+            _, _, all_segments_with_hazard = run_hazard_assessment(config_file,simulate_parameters=False)
             
             # results['hazard_assessment'] = {
             #     'runout_count': runout_count,
@@ -255,63 +255,63 @@ def run_risk_assessment(config_file="config.ini"):
             }
         
         # 7. Create Visualizations
-        logger.info("STEP 7: Create Visualizations")
+        # logger.info("STEP 7: Create Visualizations")
         
-        try:
-            # Check if visualizations are enabled
-            create_visualizations = config['OUTPUT'].getboolean('create_visualizations', True)
+        # try:
+        #     # Check if visualizations are enabled
+        #     create_visualizations = config['OUTPUT'].getboolean('create_visualizations', True)
             
-            if create_visualizations:
-                viz_dir = os.path.join(output_dir, 'visualizations')
-                ensure_directory(viz_dir)
+        #     if create_visualizations:
+        #         viz_dir = os.path.join(output_dir, 'visualizations')
+        #         ensure_directory(viz_dir)
                 
-                # Create risk class map
-                logger.info("Creating risk classification map")
-                risk_map_file = os.path.join(viz_dir, 'risk_classification.png')
-                fig = plot_classified_segments(
-                    segments_with_risk,
-                    column='risk_class_final',
-                    title='Rockfall Risk Classification',
-                    figsize=(12, 10),
-                    save_path=risk_map_file
-                )
+        #         # Create risk class map
+        #         logger.info("Creating risk classification map")
+        #         risk_map_file = os.path.join(viz_dir, 'risk_classification.png')
+        #         fig = plot_classified_segments(
+        #             segments_with_risk,
+        #             column='risk_class_final',
+        #             title='Rockfall Risk Classification',
+        #             figsize=(12, 10),
+        #             save_path=risk_map_file
+        #         )
                 
-                # Create component maps
-                logger.info("Creating risk component maps")
-                components_file = os.path.join(viz_dir, 'risk_components.png')
-                fig = create_risk_component_map(
-                    segments_with_risk,
-                    components=['hazard_class', 'vulnerability_class', 'exposure_class', 'risk_class_final'],
-                    titles=['Hazard', 'Vulnerability', 'Exposure', 'Risk'],
-                    figsize=(20, 15),
-                    save_path=components_file
-                )
+        #         # Create component maps
+        #         logger.info("Creating risk component maps")
+        #         components_file = os.path.join(viz_dir, 'risk_components.png')
+        #         fig = create_risk_component_map(
+        #             segments_with_risk,
+        #             components=['hazard_class', 'vulnerability', 'exposure_class', 'risk_class_final'],
+        #             titles=['Hazard', 'Vulnerability', 'Exposure', 'Risk'],
+        #             figsize=(20, 15),
+        #             save_path=components_file
+        #         )
                 
-                # Create risk vs network relevance matrix visualization
-                logger.info("Creating risk vs network relevance matrix")
-                matrix_file = os.path.join(viz_dir, 'risk_network_matrix.png')
-                fig = plot_risk_matrix(
-                    segments_with_risk,
-                    x_column='network_relevance_score',
-                    y_column='risk_score_normalized',
-                    title='Risk vs Network Relevance',
-                    save_path=matrix_file
-                )
+        #         # Create risk vs network relevance matrix visualization
+        #         logger.info("Creating risk vs network relevance matrix")
+        #         matrix_file = os.path.join(viz_dir, 'risk_network_matrix.png')
+        #         fig = plot_risk_matrix(
+        #             segments_with_risk,
+        #             x_column='network_relevance_score',
+        #             y_column='risk_score_normalized',
+        #             title='Risk vs Network Relevance',
+        #             save_path=matrix_file
+        #         )
                 
-                logger.info(f"Visualizations saved to: {viz_dir}")
+        #         logger.info(f"Visualizations saved to: {viz_dir}")
                 
-                results['visualizations'] = {
-                    'directory': viz_dir,
-                    'files': [risk_map_file, components_file, matrix_file]
-                }
-            else:
-                logger.info("Visualizations disabled in configuration")
+        #         results['visualizations'] = {
+        #             'directory': viz_dir,
+        #             'files': [risk_map_file, components_file, matrix_file]
+        #         }
+        #     else:
+        #         logger.info("Visualizations disabled in configuration")
                 
-        except Exception as e:
-            logger.error(f"Error creating visualizations: {str(e)}")
-            results['visualizations'] = {
-                'error': str(e)
-            }
+        # except Exception as e:
+        #     logger.error(f"Error creating visualizations: {str(e)}")
+        #     results['visualizations'] = {
+        #         'error': str(e)
+        #     }
         
         # 8. Completion
         end_time = time.time()

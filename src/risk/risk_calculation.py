@@ -97,6 +97,9 @@ class RiskCalculator:
             self.vulnerability_weight * vulnerability *
             self.exposure_weight * exposure
         )
+        if vulnerability == 0:
+            risk_score = -1.0  # Not at Risk if vulnerability is 0
+
         return risk_score
 
     def normalize_risk_score(
@@ -129,7 +132,7 @@ class RiskCalculator:
             return 0.0   # Area of Attention
         
         # Normalize to 1-5 scale
-        normalized = 1 + 4 * (risk_score - min_score) / (max_score - min_score)
+        normalized = round(1 + 4 * (risk_score - min_score) / (max_score - min_score), 1)
         
         # Clip to 1-5 range
         return min(5, max(1, normalized))
@@ -148,6 +151,8 @@ class RiskCalculator:
         str
             Risk class
         """
+        # Round score to 1 decimal place for classification
+        # score = round(score, 1)
         # Handle special values
         if score < 0:
             return 'Not at Risk'

@@ -14,7 +14,7 @@ import pandas as pd
 
 def plot_classified_segments(
     gdf: gpd.GeoDataFrame,
-    column: str = 'risk_class',
+    column: str = 'risk_class_final',
     title: str = 'Road Segments Classification',
     cmap: Optional[Union[str, mcolors.Colormap]] = None,
     figsize: Tuple[int, int] = (12, 8),
@@ -30,7 +30,7 @@ def plot_classified_segments(
     gdf : gpd.GeoDataFrame
         GeoDataFrame containing road segments
     column : str, optional
-        Column to use for coloring, by default 'risk_class'
+        Column to use for coloring, by default 'risk_class_final'
     title : str, optional
         Title for the plot, by default 'Road Segments Classification'
     cmap : Optional[Union[str, mcolors.Colormap]], optional
@@ -52,12 +52,17 @@ def plot_classified_segments(
     fig, ax = plt.subplots(figsize=figsize)
     
     # Define color mapping for common classification columns
-    if column == 'risk_class' and cmap is None:
+    if column == 'risk_class_final' and cmap is None:
         # Define custom colors for risk classes
         class_colors = {
-            'Runout Zone': '#d73027',
-            'Area of Attention': '#fdae61',
-            'Not at Risk': '#1a9850'
+        'Very Low': '#1a9850',
+        'Low': '#91cf60',
+        'Moderate': '#ffffbf',
+        'High': '#fc8d59',
+        'Very High': '#d73027',
+        'Runout Zone': '#d73027',
+        'Area of Attention': "#3871f7",
+        'Not at Risk': "#6a00ff"
         }
         
         # Handle unknown categories
@@ -72,7 +77,7 @@ def plot_classified_segments(
             if not category_gdf.empty:
                 category_gdf.plot(ax=ax, color=color, label=category)
     
-    elif column in ['hazard_class', 'vulnerability_class', 'exposure_class', 'network_relevance_class']:
+    elif column in ['hazard_class', 'exposure_class', 'network_relevance_class']:
         # Define custom colors for classification
         class_colors = {
             'Very Low': '#1a9850',
@@ -81,6 +86,12 @@ def plot_classified_segments(
             'High': '#fc8d59',
             'Very High': '#d73027'
         }
+    elif column == 'vulnerability':
+        # Define custom colors for classification
+        class_colors = {
+            0: '#1a9850',
+            1: '#d73027',
+            }
         
         # Handle unknown categories
         categories = gdf[column].unique()
@@ -118,11 +129,11 @@ def plot_classified_segments(
     # Set title and add legend if applicable
     ax.set_title(title)
     
-    if legend and column in ['risk_class', 'hazard_class', 'vulnerability_class', 'exposure_class', 'network_relevance_class']:
+    if legend and column in ['risk_class_final', 'hazard_class', 'vulnerability', 'exposure_class', 'network_relevance_class']:
         # Manually create legend
         from matplotlib.lines import Line2D
         
-        if column == 'risk_class':
+        if column == 'risk_class_final':
             class_colors = {
                 'Runout Zone': '#d73027',
                 'Area of Attention': '#fdae61',
@@ -337,7 +348,7 @@ def plot_risk_matrix(
 
 def plot_summary_statistics(
     gdf: gpd.GeoDataFrame,
-    class_column: str = 'risk_class',
+    class_column: str = 'risk_class_final',
     metric_column: str = 'segment_length',
     title: str = 'Summary by Risk Class',
     figsize: Tuple[int, int] = (12, 6),
@@ -351,7 +362,7 @@ def plot_summary_statistics(
     gdf : gpd.GeoDataFrame
         GeoDataFrame containing road segments
     class_column : str, optional
-        Column containing classification, by default 'risk_class'
+        Column containing classification, by default 'risk_class_final'
     metric_column : str, optional
         Column containing metric to summarize, by default 'segment_length'
     title : str, optional
@@ -416,7 +427,7 @@ def plot_summary_statistics(
     ax2.set_ylabel('')
     
     # Set colors for specific risk classes
-    if class_column == 'risk_class':
+    if class_column == 'risk_class_final':
         colors = {
             'Runout Zone': '#d73027',
             'Area of Attention': '#fdae61',
@@ -453,7 +464,7 @@ def plot_summary_statistics(
 
 def create_risk_component_map(
     gdf: gpd.GeoDataFrame,
-    components: List[str] = ['hazard_class', 'vulnerability_class', 'exposure_class', 'risk_class'],
+    components: List[str] = ['hazard_class', 'vulnerability', 'exposure_class', 'risk_class_final'],
     titles: Optional[List[str]] = None,
     figsize: Tuple[int, int] = (20, 15),
     save_path: Optional[str] = None
@@ -466,7 +477,7 @@ def create_risk_component_map(
     gdf : gpd.GeoDataFrame
         GeoDataFrame containing road segments with risk components
     components : List[str], optional
-        List of component columns to plot, by default ['hazard_class', 'vulnerability_class', 'exposure_class', 'risk_class']
+        List of component columns to plot, by default ['hazard_class', 'vulnerability', 'exposure_class', 'risk_class_final']
     titles : Optional[List[str]], optional
         List of titles for each component, by default None
     figsize : Tuple[int, int], optional
@@ -515,8 +526,8 @@ def create_risk_component_map(
         'High': '#fc8d59',
         'Very High': '#d73027',
         'Runout Zone': '#d73027',
-        'Area of Attention': '#fdae61',
-        'Not at Risk': '#1a9850'
+        'Area of Attention': "#3871f7",
+        'Not at Risk': "#6a00ff"
     }
     
     # Plot each component

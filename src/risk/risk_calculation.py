@@ -160,16 +160,14 @@ class RiskCalculator:
             return 'Area of Attention'
         
         # Classify based on 1-5 scale
-        if score >= 4.5:
+        if score >= 3.5:
             return 'Very High Risk'
-        elif score >= 3.5:
-            return 'High Risk'
         elif score >= 2.5:
-            return 'Moderate Risk'
+            return 'High Risk'
         elif score >= 1.5:
-            return 'Low Risk'
+            return 'Moderate Risk'
         else:
-            return 'Very Low Risk'
+            return 'Low Risk'
 
 
 def calculate_risk_for_segments(
@@ -239,7 +237,7 @@ def calculate_risk_for_segments(
     
     # Calculate raw risk scores
     logger.info("Calculating raw risk scores")
-    
+
     def calc_risk(row):
         # Check for special class
         special_class = None
@@ -251,6 +249,9 @@ def calculate_risk_for_segments(
         vulnerability = row[vulnerability_column]
         exposure = row[exposure_column]
         
+        # If vulnerability is 0, force risk = -1 (Not at Risk)
+        if vulnerability == 0:
+            return -1.0
         # Calculate risk
         return calculator.calculate_risk(hazard, vulnerability, exposure, special_class)
     
@@ -259,13 +260,19 @@ def calculate_risk_for_segments(
     # Normalize risk scores
     logger.info("Normalizing risk scores")
     max_possible = 5.0  # max hazard (5) * max vulnerability (1) * max exposure (1)
-    result[output_normalized_column] = result[output_raw_column].apply(
-        lambda x: calculator.normalize_risk_score(x, max_score=max_possible)
-    )
+    def normalize_risk_override(x, row):
+        if row[vulnerability_column] == 0:
+            return -1.0
+        return calculator.normalize_risk_score(x, max_score=max_possible)
+    result[output_normalized_column] = result.apply(lambda row: normalize_risk_override(row[output_raw_column], row), axis=1)
     
     # Classify risk
     logger.info("Classifying risk scores")
-    result[output_class_column] = result[output_normalized_column].apply(calculator.classify_risk)
+    def classify_risk_override(x, row):
+        if row[vulnerability_column] == 0:
+            return 'Not at Risk'
+        return calculator.classify_risk(x)
+    result[output_class_column] = result.apply(lambda row: classify_risk_override(row[output_normalized_column], row), axis=1)
     
     # Log summary statistics
     valid_mask = (result[output_normalized_column] > 0)  # Exclude special classes
@@ -420,7 +427,7 @@ def generate_risk_network_matrix(
 def identify_priority_segments(
     risk_assessment: gpd.GeoDataFrame,
     risk_column: str = 'risk_score_normalized',
-    network_column: str = 'network_relevance_score',
+    network_column: str = 'relevance_score',
     risk_threshold: float = 3.5,
     network_threshold: float = 3.5,
     output_column: str = 'priority_segment'

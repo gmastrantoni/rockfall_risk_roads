@@ -4,3 +4,7 @@ data/input/test_tr_str_buffer15.gpkg
 data/intermediate/road_segments_zs_3004.gpkg
 data/intermediate/road_segments_zs.gpkg
 data/intermediate/road_segments.gpkg
+data/output/road_segments_exposure_map.html
+data/output/road_exposure_map.html
+data/output/road_segments_exposure_assessment.gpkg
+implementation-guide.md

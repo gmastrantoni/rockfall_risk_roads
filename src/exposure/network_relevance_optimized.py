@@ -56,7 +56,15 @@ class OptimizedNetworkRelevanceAnalyzer:
         self.max_network_size = max_network_size
         self.sample_fraction = sample_fraction
         self.enable_parallel = enable_parallel
-        self.max_workers = max_workers
+        # Ensure max_workers is int or None
+        if max_workers is not None:
+            try:
+                self.max_workers = int(max_workers)
+            except Exception:
+                logger.warning(f"max_workers value '{max_workers}' could not be converted to int. Using None.")
+                self.max_workers = None
+        else:
+            self.max_workers = None
         
         self.baseline_metrics = {}
         self.segment_impacts = {}
